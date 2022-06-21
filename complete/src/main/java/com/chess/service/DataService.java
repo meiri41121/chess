@@ -1,5 +1,6 @@
 package com.chess.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.transaction.Transactional;
@@ -7,8 +8,7 @@ import javax.transaction.Transactional;
 import com.chess.GameRepository;
 import com.chess.MoveRepository;
 import com.chess.model.*;
-import com.chess.model.StorageMove;
-
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +21,11 @@ public class DataService {
 	@Autowired
 	private MoveRepository mr;
 
+    @Autowired
+    private mongoService ms;
+
     public long addNewGame(String name, int difficulty, Game game){
+        convertToMongo();
         StorageGame sg = new StorageGame(name, difficulty, game.getMoves().size()==0);//if the player is white we get false
         gr.save(sg);
         if(game.getMoves().size()==1)
@@ -64,4 +68,34 @@ public class DataService {
             deleteLastMove(gameId);
     }
 
+    void convertToMongo(){
+
+        List<StorageMove> moves = (List<StorageMove>) mr.findAll();
+        List<Document> docMoves = new ArrayList<Document>();
+        for(StorageMove s:moves){
+            Document move = new Document("_id", s.getId());
+            move.append("inde", s.getIndex());
+            move.append("sourceX", s.getSourceX());
+            move.append("sourceY", s.getSourceY());
+            move.append("targetX", s.getTargetX());
+            move.append("targetY", s.getTargetY());
+            move.append("became", s.getBecame());
+            move.append("gameId", s.getGameId());
+            docMoves.add(move);
+        }
+        ms.getMoveCollection().insertMany(docMoves);
+
+        List<StorageGame> games = (List<StorageGame>) gr.findAll();
+        List<Document> docGames = new ArrayList<Document>();
+        for(StorageGame s:games){
+            Document game = new Document("_id", s.getId());
+            game.append("name", s.getName());
+            game.append("difficulty", s.getDifficulty());
+            game.append("col", s.getCol());
+            game.append("end", s.getEnd());
+            game.append("win", s.getWin());
+            docGames.add(game);
+        }
+        ms.getGameCollection().insertMany(docGames);
+    }
 }
